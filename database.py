@@ -3,6 +3,7 @@ import psycopg                       # psycopg v3 — the PostgreSQL driver
 from psycopg.rows import dict_row    # makes every row come back as a plain dict
 from dotenv import load_dotenv       # reads the .env file into os.environ
 
+# my commit
 # Load .env so DATABASE_URL is available before we try to connect.
 # Never hardcode the connection string — credentials belong in the environment.
 load_dotenv()
