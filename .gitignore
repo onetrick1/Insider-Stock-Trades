@@ -4,4 +4,4 @@ __pycache__/
 *.db
 pipeline_state.json
 tempCodeRunnerFile.py
-.vscode/
+.vscode
