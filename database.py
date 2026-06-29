@@ -45,7 +45,7 @@ conn.commit()   # DDL is transactional in PostgreSQL — must commit to make the
 print("Database ready.")
 
 
-def save_transaction(conn, t):
+def save_transaction(conn, t, commit=True):
     # Two changes from the SQLite version:
     #   ?  →  %s   (psycopg uses %s as the placeholder, not ?)
     #   INSERT OR IGNORE  →  INSERT ... ON CONFLICT DO NOTHING
@@ -61,7 +61,10 @@ def save_transaction(conn, t):
         t["accession"], t["company"], t["ticker"], t["insider"],
         t["role"], t["code"], t["shares"], t["price"], t["date"],
     ))
-    conn.commit()
+    # commit=False lets the caller batch many inserts under a single commit,
+    # which is much faster when writing to a remote PostgreSQL server.
+    if commit:
+        conn.commit()
     return cursor.rowcount  # 1 if the row was inserted, 0 if it was a duplicate and skipped
 
 

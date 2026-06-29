@@ -1,6 +1,8 @@
 import time
 import json
+import threading
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 from fetcher import get_form4_paths        # your refactored Section 1
 from parse_filing import parse_filing       # your refactored Section 2
 from database import conn, save_transaction   # your Section 3
@@ -14,22 +16,55 @@ load_dotenv()      # reads .env into environment variables
 STATE_FILE = Path(__file__).parent / "pipeline_state.json"
 
 
-# ── Core fetch logic ───────────────────────────────────────────────────────
+# ── SEC rate limiter ──────────────────────────────────────────────────────────
+# The SEC asks for no more than 10 requests per second from one IP.
+# When WORKERS threads all call parse_filing() at once, this lock makes sure
+# they collectively start requests no faster than SEC_MIN_INTERVAL apart.
+_rl_lock = threading.Lock()
+_rl_last = [0.0]          # timestamp of the most recent request start
+SEC_MIN_INTERVAL = 0.11   # 1/9 s ≈ 9 req/s — safely under the 10 req/s limit
+WORKERS = 5               # concurrent filing downloads per day
 
-# Saving every single filing from that specific date
+
+def _fetch_filing(path):
+    """Rate-limited wrapper around parse_filing() for use inside the thread pool."""
+    # Acquire the lock just long enough to check the clock and record the new start time,
+    # then release it so the next thread can immediately do the same check.
+    # The actual HTTP request runs outside the lock, so multiple requests can be
+    # in-flight at the same time.
+    with _rl_lock:
+        now = time.perf_counter()
+        wait = SEC_MIN_INTERVAL - (now - _rl_last[0])
+        if wait > 0:
+            time.sleep(wait)
+        _rl_last[0] = time.perf_counter()
+    return parse_filing(path)
+
+
+# ── Core fetch logic ───────────────────────────────────────────────────────────
+
 def process_day(date, quarter):
     # Step 1: get every Form 4 filing path for this day.
     paths = get_form4_paths(date, quarter)
     print(f"{date}: found {len(paths)} Form 4 filings")
 
+    # Step 2: download and parse all filings concurrently.
+    # ThreadPoolExecutor keeps WORKERS threads busy at once.
+    # _fetch_filing() enforces the SEC rate limit across all threads, so the
+    # combined request rate stays ≤ 9 req/s regardless of concurrency.
+    all_transactions = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
+        for transactions in executor.map(_fetch_filing, paths):
+            all_transactions.extend(transactions)
+
+    # Step 3: write all transactions and commit ONCE for the whole day.
+    # Previously we committed after every single row. With a remote PostgreSQL
+    # server each commit is a network round trip — batching turns N trips into 1.
     saved = 0
-    # Step 2: visit each filing, parse it, and store its transactions.
-    for path in paths:
-        # parse_filing returns a list (a filing can hold several transactions).
-        for t in parse_filing(path):
-            saved += save_transaction(conn, t)   # only counts rows actually inserted
-        time.sleep(0.15)   # be polite: stay well under SEC's rate limit
-    # time.sleep(0.15) pauses 0.15 s between filings — the SEC asks for under ~10 req/s
+    for t in all_transactions:
+        saved += save_transaction(conn, t, commit=False)
+    if all_transactions:
+        conn.commit()
 
     print(f"{date}: saved {saved} open-market transactions")
 
@@ -143,7 +178,7 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter() # tracking how long it takes to fetch all data and import to database
 
-    extend_to(37)   # fetch up to __ days back FROM TODAY, skipping days already fetched
+    extend_to(82)   # fetch up to __ days back FROM TODAY, skipping days already fetched
 
     end_time = time.perf_counter()
     print(f"Done. Finished in {end_time - start_time:.1f} seconds")
