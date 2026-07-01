@@ -121,13 +121,15 @@ def _download(ticker, start, end):
 def price_on_or_after(prices, target_date):
     """
     Nearest trading-day closing price on or after target_date.
-    Returns None if the date is in the future (no data yet).
+    Returns None if the date is in the future or the price is NaN.
     """
+    import math
     target    = pd.to_datetime(target_date)
     available = prices[prices.index >= target]
     if len(available) == 0:
         return None
-    return float(available.iloc[0])
+    price = float(available.iloc[0])
+    return None if math.isnan(price) else price
 
 
 def compute_returns(stock_prices, spy_prices, buy_date):

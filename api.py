@@ -1,10 +1,22 @@
 import os
+import math
 import psycopg                       # psycopg v3
 from psycopg.rows import dict_row
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 load_dotenv()      # reads .env into environment variables
+
+
+def _safe(v):
+    """Return None for NaN/Inf floats so the JSON response is always valid."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+        return None if (math.isnan(f) or math.isinf(f)) else f
+    except (TypeError, ValueError):
+        return v
 
 app = FastAPI()
 
@@ -73,7 +85,8 @@ def get_transactions(
 
     rows = conn.execute(query, params).fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+    return [{k: _safe(v) if isinstance(v, float) else v for k, v in row.items()}
+            for row in rows]
 
 
 @app.get("/summary")
@@ -158,10 +171,10 @@ def get_stats(
         "horizons": [
             {
                 "label": h,
-                "n": row[f"n_{h}"],
-                "avg_ret": row[f"avg_ret_{h}"],
-                "avg_exc": row[f"avg_exc_{h}"],
-                "hit_rate": row[f"hit_{h}"],
+                "n":        row[f"n_{h}"],
+                "avg_ret":  _safe(row[f"avg_ret_{h}"]),
+                "avg_exc":  _safe(row[f"avg_exc_{h}"]),
+                "hit_rate": _safe(row[f"hit_{h}"]),
             }
             for h in HORIZONS
         ],
