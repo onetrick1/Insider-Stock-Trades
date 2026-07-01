@@ -1,4 +1,4 @@
-const API = "http://localhost:8000";
+const API = "https://insider-stock-trades.onrender.com";
 
 // ── State ──────────────────────────────────────────────────────────────────
 let allRows = [];

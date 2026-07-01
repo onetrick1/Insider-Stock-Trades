@@ -23,22 +23,16 @@
 
   <!-- API offline guide — only shown when server is down -->
   <div class="guide" id="guide">
-    <div class="guide-title">API server is not running</div>
-    <p>Open a terminal in the project folder and run:</p>
-    <pre>.\venv\Scripts\activate
-uvicorn api:app --reload</pre>
+    <div class="guide-title">API server is unavailable</div>
+    <p>The backend at <strong style="color:var(--text)">https://insider-stock-trades.onrender.com</strong> is not responding.</p>
     <div class="guide-steps">
       <div class="guide-step">
         <span class="guide-step-num">1</span>
-        The server starts at <strong style="color:var(--text)">http://localhost:8000</strong> — then refresh this page.
+        Wait a moment — the server may be waking up (cold start on Render's free tier can take ~30 s).
       </div>
       <div class="guide-step">
         <span class="guide-step-num">2</span>
-        To fill the database with SEC filings: <code>python pipeline.py</code>
-      </div>
-      <div class="guide-step">
-        <span class="guide-step-num">3</span>
-        To compute forward returns vs SPY: <code>python returns.py</code>
+        Refresh the page once it's back online.
       </div>
     </div>
   </div>
