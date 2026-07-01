@@ -57,7 +57,7 @@ def parse_filing(filing_path):
                 "shares": float(shares_text),
                 # Gifts/grants can have no price — store 0.0 rather than crashing.
                 "price": float(price_text) if price_text else 0.0,
-                "date": txn.findtext("transactionDate/value"),
+                "date": (txn.findtext("transactionDate/value") or "")[:10],
             })
 
     return transactions

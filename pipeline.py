@@ -178,7 +178,7 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter() # tracking how long it takes to fetch all data and import to database
 
-    extend_to(82)   # fetch up to __ days back FROM TODAY, skipping days already fetched
+    extend_to(365)   # fetch up to __ days back FROM TODAY, skipping days already fetched
 
     end_time = time.perf_counter()
     print(f"Done. Finished in {end_time - start_time:.1f} seconds")
